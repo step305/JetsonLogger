@@ -12,12 +12,15 @@ class CameraMessage:
         self.ts = ts
 
 
-def orb_detector_process(frame: np.ndarray):
-    orb_detector = cv2.ORB_create(nfeatures=ORB_DETECTOR_MAX_FEATURES)
+def orb_detector_process(orb_detector, frame: np.ndarray):
     frame_bw = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    descriptors=[]
+    points=[]
     keypoints, descriptors = orb_detector.detectAndCompute(frame_bw, None)
+    points = np.array(cv2.KeyPoint_convert(keypoints), dtype=np.float32)
+
     ts = time.time()
-    return CameraMessage(ts, descriptors, keypoints)
+    return CameraMessage(ts, descriptors, points)
 
 
 def camera_reader(queue_features: mp.Queue,
@@ -40,6 +43,8 @@ def camera_reader(queue_features: mp.Queue,
     fps_timer_start = time.time()
     fps_counter = 0
 
+    orb_detector = cv2.ORB_create(nfeatures=ORB_DETECTOR_MAX_FEATURES)
+
     while True:
         if stop.is_set():
             break
@@ -47,18 +52,19 @@ def camera_reader(queue_features: mp.Queue,
         if ret:
             if fps_counter >= FPS_MAX_COUNTER:
                 fps_timer_stop = time.time()
-                print('VideoCapture at {:.1}fps'.format(fps_counter / (fps_timer_stop - fps_timer_start)))
+                print('VideoCapture at {:.1f}fps'.format(fps_counter / (fps_timer_stop - fps_timer_start)))
                 fps_timer_start = time.time()
                 fps_counter = 0
             else:
                 fps_counter += 1
-            msg = orb_detector_process(frame)
+            msg = orb_detector_process(orb_detector, frame)
             if not queue_record.full() and not queue_features.full():
                 queue_record.put(frame)
                 queue_features.put(msg)
             else:
                 print('VideoCapture: Warning! Queue is full!')
     capture_device.release()
+    print('VideoCapture: Finished!')
 
 
 def video_recorder(queue_record: mp.Queue,
@@ -75,7 +81,7 @@ def video_recorder(queue_record: mp.Queue,
         if not queue_record.empty():
             if fps_counter >= FPS_MAX_COUNTER:
                 fps_timer_stop = time.time()
-                print('VideoRecord at {:.1}fps'.format(fps_counter / (fps_timer_stop - fps_timer_start)))
+                print('VideoRecord at {:.1f}fps'.format(fps_counter / (fps_timer_stop - fps_timer_start)))
                 fps_timer_start = time.time()
                 fps_counter = 0
             else:
@@ -83,3 +89,4 @@ def video_recorder(queue_record: mp.Queue,
             frame = queue_record.get()
             recorder_device.write(frame)
     recorder_device.release()
+    print('VideoRecord: Finished!')

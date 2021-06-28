@@ -46,3 +46,4 @@ def logger(queue_imu: mp.Queue,
     dset = log_file.create_dataset('outputs/features', data=logger_keypoints[0:features_msg_counter, :, :].T)
     dset = log_file.create_dataset('outputs/features_len', data=logger_keypoints_len[0:features_msg_counter].T)
     log_file.close()
+    print('Logger: Finished!')

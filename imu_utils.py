@@ -27,21 +27,16 @@ def imu_reader(queue_imu: mp.Queue,
 
     fps_counter = 0
     fps_timer_start = time.time()
+    print('IMUReader: Started!')
 
     while True:
         if stop.is_set():
             break
-        if fps_counter >= FPS_MAX_COUNTER:
-            fps_timer_stop = time.time()
-            print('IMUReader at {:.1}fps'.format(fps_counter / (fps_timer_stop - fps_timer_start)))
-            fps_timer_start = time.time()
-            fps_counter = 0
-        else:
-            fps_counter += 1
 
         data_len = imu_device.in_waiting
         if data_len > 0:
             buffer = imu_device.read(size=data_len)
+            #print(buffer)
             for next_byte in buffer:
                 parser_machine.parse_byte(next_byte)
                 if parser_machine.data_ready:
@@ -53,4 +48,12 @@ def imu_reader(queue_imu: mp.Queue,
                         queue_imu.put(IMUMessage(dtheta))
                     else:
                         print('IMUReader: Warning! Queue is full!')
+                    if fps_counter >= FPS_MAX_COUNTER:
+                        fps_timer_stop = time.time()
+                        print('IMUReader at {:.1f}fps'.format(fps_counter / (fps_timer_stop - fps_timer_start)))
+                        fps_timer_start = time.time()
+                        fps_counter = 0
+                    else:
+                        fps_counter += 1
     imu_device.close()
+    print('IMUReader: Finished!')
